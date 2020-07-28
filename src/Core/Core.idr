@@ -6,6 +6,8 @@ import Core.TT
 import Data.List
 import Data.Vect
 import Parser.Source
+import Text.PrettyPrint.Prettyprinter
+import Text.PrettyPrint.Prettyprinter.Util
 
 import public Data.IORef
 import System
@@ -42,6 +44,15 @@ Show DotReason where
   show ErasedArg = "Erased argument"
   show UserDotted = "User dotted"
   show UnknownDot = "Unknown reason"
+
+export
+Pretty DotReason where
+  pretty NonLinearVar = reflow "Non linear pattern variable"
+  pretty VarApplied = reflow "Variable applied to arguments"
+  pretty NotConstructor = reflow "Not a constructor application or primitive"
+  pretty ErasedArg = reflow "Erased argument"
+  pretty UserDotted = reflow "User dotted"
+  pretty UnknownDot = reflow "Unknown reason"
 
 -- All possible errors, carrying a location
 public export
