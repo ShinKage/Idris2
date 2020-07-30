@@ -28,6 +28,7 @@ import Idris.Resugar
 import Idris.REPL
 import Idris.Syntax
 import Idris.Version
+import Idris.Pretty
 
 import Idris.IDEMode.Commands
 import Idris.IDEMode.Holes
@@ -42,8 +43,6 @@ import TTImp.ProcessDecls
 import Utils.Hex
 
 import Data.List
-import Text.PrettyPrint.Prettyprinter
-import Text.PrettyPrint.Prettyprinter.Render.String
 import System
 import System.File
 
@@ -133,7 +132,7 @@ getInput f
 ||| Do nothing and tell the user to wait for us to implmement this (or join the effort!)
 todoCmd : {auto o : Ref ROpts REPLOpts} ->
           String -> Core ()
-todoCmd cmdName = iputStrLn $ cmdName ++ ": command not yet implemented. Hopefully soon!"
+todoCmd cmdName = iputStrLn $ reflow $ cmdName ++ ": command not yet implemented. Hopefully soon!"
 
 
 data IDEResult
@@ -243,8 +242,7 @@ processCatch cmd
                            put UST u'
                            put Syn s'
                            put ROpts o'
-                           pmsg <- perror err
-                           let msg = renderString (layoutPretty defaultLayoutOptions pmsg) -- FIXME: tmp
+                           msg <- perror err
                            pure $ REPL $ REPLError msg)
 
 idePutStrLn : File -> Integer -> String -> Core ()
@@ -264,8 +262,8 @@ printIDEResultWithHighlight outf i msg = returnFromIDE outf i (SExpList [SymbolA
                                                                         -- TODO return syntax highlighted result
                                                                         , SExpList []])
 
-printIDEError : File -> Integer -> String -> Core ()
-printIDEError outf i msg = returnFromIDE outf i (SExpList [SymbolAtom "error", toSExp msg ])
+printIDEError : Ref ROpts REPLOpts => File -> Integer -> Doc IdrisAnn -> Core ()
+printIDEError outf i msg = returnFromIDE outf i (SExpList [SymbolAtom "error", toSExp !(renderWithoutColor msg) ])
 
 SExpable REPLEval where
   toSExp EvalTC = SymbolAtom "typecheck"
@@ -307,19 +305,17 @@ displayIDEResult outf i  (REPL $ TermChecked x y)
 displayIDEResult outf i  (REPL $ FileLoaded x)
   = printIDEResult outf i $ SExpList []
 displayIDEResult outf i  (REPL $ ErrorLoadingFile x err)
-  = printIDEError outf i
-  $ "Error loading file " ++ x ++ ": " ++ show err
+  = printIDEError outf i $ reflow "Error loading file" <++> pretty x <+> colon <++> pretty (show err)
 displayIDEResult outf i  (REPL $ ErrorsBuildingFile x errs)
-  = printIDEError outf i
-  $ "Error(s) building file " ++ x ++ ": " ++
-    (showSep "\n" $ map show errs)
+  = do errs' <- traverse perror errs
+       printIDEError outf i $ reflow "Error(s) building file" <++> pretty x <+> colon <++> vsep errs'
 displayIDEResult outf i  (REPL $ NoFileLoaded)
-  = printIDEError outf i "No file can be reloaded"
+  = printIDEError outf i $ reflow "No file can be reloaded"
 displayIDEResult outf i  (REPL $ CurrentDirectory dir)
   = printIDEResult outf i
   $ StringAtom $ "Current working directory is '" ++ dir ++ "'"
 displayIDEResult outf i  (REPL CompilationFailed)
-  = printIDEError outf i "Compilation failed"
+  = printIDEError outf i $ reflow "Compilation failed"
 displayIDEResult outf i  (REPL $ Compiled f)
   = printIDEResult outf i $ StringAtom
   $ "File " ++ f ++ " written"
@@ -360,7 +356,7 @@ displayIDEResult outf i  (REPL $ VersionIs x)
 displayIDEResult outf i (REPL $ Edited (DisplayEdit xs))
   = printIDEResult outf i $ StringAtom $ showSep "\n" xs
 displayIDEResult outf i (REPL $ Edited (EditError x))
-  = printIDEError outf i x
+  = printIDEError outf i (pretty x)
 displayIDEResult outf i (REPL $ Edited (MadeLemma lit name pty pappstr))
   = printIDEResult outf i
   $ StringAtom $ (relit lit $ show name ++ " : " ++ show pty ++ "\n") ++ pappstr
@@ -397,7 +393,7 @@ loop : {auto c : Ref Ctxt Defs} ->
 loop
     = do res <- getOutput
          case res of
-              REPL _ => printError "Running idemode but output isn't"
+              REPL _ => printError $ reflow "Running idemode but output isn't"
               IDEMode idx inf outf => do
                 inp <- coreLift $ getInput inf
                 end <- coreLift $ fEOF inf
@@ -405,7 +401,7 @@ loop
                    then pure ()
                    else case parseSExp inp of
                       Left err =>
-                        do printIDEError outf idx ("Parse error: " ++ show err)
+                        do printIDEError outf idx (reflow "Parse error:" <++> pretty err)
                            loop
                       Right sexp =>
                         case getMsg sexp of
@@ -415,7 +411,7 @@ loop
                                handleIDEResult outf i res
                                loop
                           Nothing =>
-                            do printIDEError outf idx ("Unrecognised command: " ++ show sexp)
+                            do printIDEError outf idx (reflow "Unrecognised command:" <++> pretty (show sexp))
                                loop
   where
     updateOutput : Integer -> Core ()
@@ -434,7 +430,7 @@ replIDE : {auto c : Ref Ctxt Defs} ->
 replIDE
     = do res <- getOutput
          case res of
-              REPL _ => printError "Running idemode but output isn't"
+              REPL _ => printError $ reflow "Running idemode but output isn't"
               IDEMode _ inf outf => do
                 send outf (version 2 0)
                 loop
