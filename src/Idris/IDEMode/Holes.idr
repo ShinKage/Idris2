@@ -143,9 +143,8 @@ showHole defs env fn args ty
 
 export
 prettyRigHole : RigCount -> Doc ann
-prettyRigHole = elimSemi (pretty '0' <+> space)
-                         (pretty '1' <+> space)
-                         (const $ space <+> space)
+prettyRigHole (N n) = pretty n <+> space
+prettyRigHole Infinity = space <+> space
 
 export
 prettyHole : {vars : _} ->

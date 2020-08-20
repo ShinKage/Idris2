@@ -193,8 +193,8 @@ mutual
       getName (x :: xs) (Later p) = getName xs p
 
       rigSafe : RigCount -> RigCount -> Core ()
-      rigSafe l r = when (l < r)
-                         (throw (LinearMisuse fc (getName vars prf) l r))
+      rigSafe l r = do when (l < r)
+                            (throw (LinearMisuse fc (getName vars prf) l r))
 
       -- count the usage if we're in a linear context. If not, the usage doesn't
       -- matter

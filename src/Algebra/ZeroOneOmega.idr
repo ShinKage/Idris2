@@ -1,32 +1,60 @@
 module Algebra.ZeroOneOmega
 
+import Decidable.Equality
+
 import Algebra.Semiring
 import Algebra.Preorder
 
 %default total
 
-export
+public export
 data ZeroOneOmega = Rig0 | Rig1 | RigW
+
+data LTEZeroOneOmega : ZeroOneOmega -> ZeroOneOmega -> Type where
+  LTEZero : LTEZeroOneOmega Rig0 y
+  LTEOneOne : LTEZeroOneOmega Rig1 Rig1
+  LTEOneOmega : LTEZeroOneOmega Rig1 RigW
+  LTEOmegaOmega : LTEZeroOneOmega RigW RigW
+
+Uninhabited (LTEZeroOneOmega Rig1 Rig0) where
+  uninhabited LTEZero impossible
+  uninhabited LTEOneOne impossible
+  uninhabited LTEOneOmega impossible
+  uninhabited LTEOmegaOmega impossible
+
+Uninhabited (LTEZeroOneOmega RigW Rig0) where
+  uninhabited LTEZero impossible
+  uninhabited LTEOneOne impossible
+  uninhabited LTEOneOmega impossible
+  uninhabited LTEOmegaOmega impossible
+
+Uninhabited (LTEZeroOneOmega RigW Rig1) where
+  uninhabited LTEZero impossible
+  uninhabited LTEOneOne impossible
+  uninhabited LTEOneOmega impossible
+  uninhabited LTEOmegaOmega impossible
 
 export
 Preorder ZeroOneOmega where
-  Rig0 <= _ = True
-  Rig1 <= Rig1 = True
-  Rig1 <= RigW = True
-  RigW <= RigW = True
-  _ <= _ = False
-  preorderRefl {x = Rig0} = Refl
-  preorderRefl {x = Rig1} = Refl
-  preorderRefl {x = RigW} = Refl
-  preorderTrans {x = Rig0} {y = y} {z = z} a b = Refl
-  preorderTrans {x = Rig1} {y = Rig0} {z = Rig0} Refl Refl impossible
-  preorderTrans {x = Rig1} {y = Rig1} {z = Rig0} _ Refl impossible
-  preorderTrans {x = Rig1} {y = RigW} {z = Rig0} _ Refl impossible
-  preorderTrans {x = Rig1} {y = y} {z = Rig1} a b = Refl
-  preorderTrans {x = Rig1} {y = y} {z = RigW} a b = Refl
-  preorderTrans {x = RigW} {y = Rig0} {z = _} Refl _ impossible
-  preorderTrans {x = RigW} {y = Rig1} {z = _} Refl _ impossible
-  preorderTrans {x = RigW} {y = RigW} {z = z} a b = b
+  LTE = LTEZeroOneOmega
+
+  isLTE Rig0 y = Yes LTEZero
+  isLTE Rig1 Rig0 = No uninhabited
+  isLTE Rig1 Rig1 = Yes LTEOneOne
+  isLTE Rig1 RigW = Yes LTEOneOmega
+  isLTE RigW Rig0 = No uninhabited
+  isLTE RigW Rig1 = No uninhabited
+  isLTE RigW RigW = Yes LTEOmegaOmega
+
+  preorderRefl Rig0 = LTEZero
+  preorderRefl Rig1 = LTEOneOne
+  preorderRefl RigW = LTEOmegaOmega
+
+  preorderTrans LTEZero y = LTEZero
+  preorderTrans LTEOneOne LTEOneOne = LTEOneOne
+  preorderTrans LTEOneOne LTEOneOmega = LTEOneOmega
+  preorderTrans LTEOneOmega LTEOmegaOmega = LTEOneOmega
+  preorderTrans LTEOmegaOmega LTEOmegaOmega = LTEOmegaOmega
 
 public export
 Eq ZeroOneOmega where
@@ -34,6 +62,18 @@ Eq ZeroOneOmega where
   (==) Rig1 Rig1 = True
   (==) RigW RigW = True
   (==) _ _ = False
+
+public export
+DecEq ZeroOneOmega where
+  decEq Rig0 Rig0 = Yes Refl
+  decEq Rig0 Rig1 = No (\case Refl impossible)
+  decEq Rig0 RigW = No (\case Refl impossible)
+  decEq Rig1 Rig0 = No (\case Refl impossible)
+  decEq Rig1 Rig1 = Yes Refl
+  decEq Rig1 RigW = No (\case Refl impossible)
+  decEq RigW Rig0 = No (\case Refl impossible)
+  decEq RigW Rig1 = No (\case Refl impossible)
+  decEq RigW RigW = Yes Refl
 
 export
 Show ZeroOneOmega where
@@ -68,6 +108,7 @@ Semiring ZeroOneOmega where
 export
 Top ZeroOneOmega where
   top = RigW
-  topAbs {x = Rig0} = Refl
-  topAbs {x = Rig1} = Refl
-  topAbs {x = RigW} = Refl
+
+  topAbs Rig0 = LTEZero
+  topAbs Rig1 = LTEOneOmega
+  topAbs RigW = LTEOmegaOmega
