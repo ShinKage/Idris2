@@ -52,10 +52,8 @@ showName (MN _ _) = False
 showName _ = True
 
 showCount : RigCount -> String
-showCount = elimSemi
-                 " 0 "
-                 " 1 "
-                 (const "   ")
+showCount (N n) = " " ++ show n ++ " "
+showCount Infinity = "   "
 
 impBracket : Bool -> String -> String
 impBracket False str = str

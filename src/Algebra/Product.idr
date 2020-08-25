@@ -37,6 +37,42 @@ public export
   plusNeutral = (plusNeutral, plusNeutral)
   timesNeutral = (timesNeutral, timesNeutral)
 
+  plusIdentityLeft (x, y) =
+    rewrite plusIdentityLeft x in
+    rewrite plusIdentityLeft y in Refl
+
+  plusAssociative (x1, x2) (y1, y2) (z1, z2) =
+    rewrite plusAssociative x1 y1 z1 in
+    rewrite plusAssociative x2 y2 z2 in Refl
+
+  plusCommutative (x1, x2) (y1, y2) =
+    rewrite plusCommutative x1 y1 in
+    rewrite plusCommutative x2 y2 in Refl
+
+  timesIdentityLeft (x, y) =
+    rewrite timesIdentityLeft x in
+    rewrite timesIdentityLeft y in Refl
+
+  timesIdentityRight (x, y) =
+    rewrite timesIdentityRight x in
+    rewrite timesIdentityRight y in Refl
+
+  timesAnnihilationLeft (x, y) =
+    rewrite timesAnnihilationLeft x in
+    rewrite timesAnnihilationLeft y in Refl
+
+  timesAnnihilationRight (x, y) =
+    rewrite timesAnnihilationRight x in
+    rewrite timesAnnihilationRight y in Refl
+
+  timesDistributiveLeft (x1, x2) (y1, y2) (z1, z2) =
+    rewrite timesDistributiveLeft x1 y1 z1 in
+    rewrite timesDistributiveLeft x2 y2 z2 in Refl
+
+  timesDistributiveRight (x1, x2) (y1, y2) (z1, z2) =
+    rewrite timesDistributiveRight x1 y1 z1 in
+    rewrite timesDistributiveRight x2 y2 z2 in Refl
+
 ||| The top value of a lattice
 export
 (Top a, Top b) => Top (a, b) where

@@ -58,10 +58,10 @@ Preorder ZeroOneOmega where
 
 public export
 Eq ZeroOneOmega where
-  (==) Rig0 Rig0 = True
-  (==) Rig1 Rig1 = True
-  (==) RigW RigW = True
-  (==) _ _ = False
+  Rig0 == Rig0 = True
+  Rig1 == Rig1 = True
+  RigW == RigW = True
+  _ == _ = False
 
 public export
 DecEq ZeroOneOmega where
@@ -103,6 +103,101 @@ Semiring ZeroOneOmega where
   (|*|) = rigMult
   plusNeutral = Rig0
   timesNeutral = Rig1
+
+  plusIdentityLeft Rig0 = Refl
+  plusIdentityLeft Rig1 = Refl
+  plusIdentityLeft RigW = Refl
+
+  plusCommutative Rig0 y =
+    rewrite plusIdentityRight y in Refl
+  plusCommutative x Rig0 =
+    rewrite plusIdentityRight x in Refl
+  plusCommutative Rig1 Rig1 = Refl
+  plusCommutative Rig1 RigW = Refl
+  plusCommutative RigW Rig1 = Refl
+  plusCommutative RigW RigW = Refl
+
+  plusAssociative Rig0 y z = Refl
+  plusAssociative x Rig0 z =
+    rewrite plusIdentityRight x in Refl
+  plusAssociative x y Rig0 =
+    rewrite plusIdentityRight y in
+    rewrite plusIdentityRight (x |+| y) in Refl
+  plusAssociative Rig1 Rig1 Rig1 = Refl
+  plusAssociative Rig1 Rig1 RigW = Refl
+  plusAssociative Rig1 RigW Rig1 = Refl
+  plusAssociative Rig1 RigW RigW = Refl
+  plusAssociative RigW Rig1 Rig1 = Refl
+  plusAssociative RigW Rig1 RigW = Refl
+  plusAssociative RigW RigW Rig1 = Refl
+  plusAssociative RigW RigW RigW = Refl
+
+  timesIdentityLeft Rig0 = Refl
+  timesIdentityLeft Rig1 = Refl
+  timesIdentityLeft RigW = Refl
+
+  timesIdentityRight Rig0 = Refl
+  timesIdentityRight Rig1 = Refl
+  timesIdentityRight RigW = Refl
+
+  timesAnnihilationLeft Rig0 = Refl
+  timesAnnihilationLeft Rig1 = Refl
+  timesAnnihilationLeft RigW = Refl
+
+  timesAnnihilationRight Rig0 = Refl
+  timesAnnihilationRight Rig1 = Refl
+  timesAnnihilationRight RigW = Refl
+
+  timesAssociative Rig0 y z = Refl
+  timesAssociative x Rig0 y =
+    rewrite timesAnnihilationRight x in Refl
+  timesAssociative x y Rig0 =
+    rewrite timesAnnihilationRight y in
+    rewrite timesAnnihilationRight x in
+    rewrite timesAnnihilationRight (x |*| y) in Refl
+  timesAssociative Rig1 y z =
+    rewrite timesIdentityLeft y in
+    rewrite timesIdentityLeft (y |*| z) in Refl
+  timesAssociative x Rig1 y =
+    rewrite timesIdentityLeft y in
+    rewrite timesIdentityRight x in Refl
+  timesAssociative x y Rig1 =
+    rewrite timesIdentityRight y in
+    rewrite timesIdentityRight (x |*| y) in Refl
+  timesAssociative RigW RigW RigW = Refl
+
+  timesDistributiveLeft Rig0 y z = Refl
+  timesDistributiveLeft x Rig0 z =
+    rewrite timesAnnihilationRight x in Refl
+  timesDistributiveLeft x y Rig0 =
+    rewrite timesAnnihilationRight x in
+    rewrite plusIdentityRight y in
+    rewrite plusIdentityRight (x |*| y) in Refl
+  timesDistributiveLeft Rig1 y z =
+    rewrite timesIdentityLeft y in
+    rewrite timesIdentityLeft z in
+    rewrite timesIdentityLeft (y |+| z) in Refl
+  timesDistributiveLeft RigW Rig1 Rig1 = Refl
+  timesDistributiveLeft RigW Rig1 RigW = Refl
+  timesDistributiveLeft RigW RigW Rig1 = Refl
+  timesDistributiveLeft RigW RigW RigW = Refl
+
+  timesDistributiveRight Rig0 y z = Refl
+  timesDistributiveRight x Rig0 z =
+    rewrite plusIdentityRight x in
+    rewrite plusIdentityRight (x |*| z) in Refl
+  timesDistributiveRight x y Rig0 =
+    rewrite timesAnnihilationRight (x |+| y) in
+    rewrite timesAnnihilationRight x in
+    rewrite timesAnnihilationRight y in Refl
+  timesDistributiveRight Rig1 Rig1 Rig1 = Refl
+  timesDistributiveRight Rig1 Rig1 RigW = Refl
+  timesDistributiveRight Rig1 RigW Rig1 = Refl
+  timesDistributiveRight Rig1 RigW RigW = Refl
+  timesDistributiveRight RigW Rig1 Rig1 = Refl
+  timesDistributiveRight RigW Rig1 RigW = Refl
+  timesDistributiveRight RigW RigW Rig1 = Refl
+  timesDistributiveRight RigW RigW RigW = Refl
 
 ||| The top value of a lattice
 export
