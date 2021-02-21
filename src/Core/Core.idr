@@ -651,6 +651,10 @@ get : (x : label) -> {auto ref : Ref x a} -> Core a
 get x {ref = MkRef io} = coreLift (readIORef io)
 
 export %inline
+gets : (x : label) -> (a -> b) -> {auto ref : Ref x a} -> Core b
+gets x f = f <$> get x
+
+export %inline
 put : (x : label) -> {auto ref : Ref x a} -> a -> Core ()
 put x {ref = MkRef io} val = coreLift (writeIORef io val)
 

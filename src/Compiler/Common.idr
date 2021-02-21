@@ -86,6 +86,7 @@ compile {c} cg tm out
          let outputDir = outputDirWithDefault d
          ensureDirectoryExists tmpDir
          ensureDirectoryExists outputDir
+         o <- newRef OptCache initOptimizationsCache
          logTime "Code generation overall" $
              compileExpr cg c tmpDir outputDir tm out
 
@@ -251,6 +252,7 @@ dumpVMCode fn lns
 -- Return the names, the type tags, and a compiled version of the expression
 export
 getCompileData : {auto c : Ref Ctxt Defs} ->
+                 {auto o : Ref OptCache OptimizationsCache} ->
                  UsePhase -> ClosedTerm -> Core CompileData
 getCompileData phase tm_in
     = do defs <- get Ctxt

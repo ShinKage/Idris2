@@ -214,6 +214,7 @@ export
 compileToImperative : Ref Ctxt Defs -> ClosedTerm -> Core (ImperativeStatement, ImperativeStatement)
 compileToImperative c tm =
   do
+    o <- newRef OptCache initOptimizationsCache
     cdata <- getCompileData Cases tm
     let ndefs = namedDefs cdata
     let ctm = forget (mainExpr cdata)

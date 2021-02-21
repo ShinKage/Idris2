@@ -450,6 +450,7 @@ compileAndInlineAll
          let ns = keys (toIR defs)
          cns <- filterM nonErased ns
 
+         o <- newRef OptCache initOptimizationsCache
          traverse_ compileDef cns
 
          traverse_ inlineDef cns

@@ -1070,6 +1070,7 @@ compileExpr ANF c _ outputDir tm outfile =
      let outexec = outputDir </> outfile
 
      coreLift $ mkdirAll outputDir
+     o <- newRef OptCache initOptimizationsCache
      cdata <- getCompileData ANF tm
      let defs = anf cdata
      newRef ArgCounter 0

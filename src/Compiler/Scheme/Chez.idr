@@ -380,6 +380,7 @@ compileToSS c appdir tm outfile
     = do ds <- getDirectives Chez
          libs <- findLibs ds
          traverse_ copyLib libs
+         o <- newRef OptCache initOptimizationsCache
          cdata <- getCompileData Cases tm
          let ndefs = namedDefs cdata
          let ctm = forget (mainExpr cdata)

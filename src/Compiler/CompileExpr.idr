@@ -3,6 +3,7 @@ module Compiler.CompileExpr
 import Core.CaseTree
 import public Core.CompileExpr
 import Core.Context
+import Core.Context.Log
 import Core.Env
 import Core.Name
 import Core.Normalise
@@ -15,6 +16,21 @@ import Libraries.Data.NameMap
 import Data.Vect
 
 %default covering
+
+export
+data OptCache : Type where
+
+public export
+record OptimizationsCache where
+  constructor MkOptCache
+  isNatLikeCon : NameMap Bool
+  isSLikeBranch : NameMap Bool
+  isZLikeBranhc : NameMap Bool
+  isFiniteEnumCon : NameMap Bool
+
+export
+initOptimizationsCache : OptimizationsCache
+initOptimizationsCache = MkOptCache empty empty empty empty
 
 data Args
     = NewTypeBy Nat Nat
@@ -225,38 +241,63 @@ natHackTree t = t
 
 -- Rewrite case trees on Bool/Ord to be case trees on Integer
 -- TODO: Generalise to all finite enumerations
-isFiniteEnum : Name -> Bool
-isFiniteEnum (NS ns (UN n))
-   =  ((n == "True" || n == "False") && ns == basicsNS) -- booleans
-   || ((n == "LT" || n == "EQ" || n == "GT") && ns == eqOrdNS) -- comparison
-isFiniteEnum _ = False
-
-boolHackTree : CExp vars -> CExp vars
-boolHackTree (CConCase fc sc alts def)
-   = let x = traverse toBool alts
-         Just alts' = x
-              | Nothing => CConCase fc sc alts def in
-         CConstCase fc sc alts' def
+isFiniteEnum : Ref Ctxt Defs => Ref OptCache OptimizationsCache => Name -> Core Bool
+isFiniteEnum n@(NS _ (UN _)) = case lookup n !(gets OptCache isFiniteEnumCon) of
+    Just v => pure v
+    _ => do ctxt <- gets Ctxt gamma
+            Just def <- lookupCtxtExact n ctxt
+              | _ => pure False
+            let Just tyname = retType (type def)
+              | _ => pure False
+            Just ty <- lookupCtxtExact tyname ctxt
+              | _ => pure False
+            let (TCon _ _ _ _ _ _ cons _) = definition ty
+              | _ => pure False
+            res <- all (== True) <$> traverse (\n => do Just gdef <- lookupCtxtExact n ctxt
+                                                          | _ => pure False
+                                                        let (DCon _ arity _) = definition gdef
+                                                          | _ => pure False
+                                                        pure $ (arity `minus` length (gdef.eraseArgs)) == 0) cons
+            when res $ log "compile.opt" 5 ("Finite enumeration optimization found for " ++ show !(toFullNames tyname))
+            updated <- traverse (\con => pure (!(toFullNames con), res)) cons
+            update OptCache (record { isFiniteEnumCon $= insertFrom updated })
+            pure res
   where
-    toBool : CConAlt vars -> Maybe (CConstAlt vars)
+    retType : Term vars -> Maybe Name
+    retType (Bind _ _ _ t) = retType t
+    retType (App _ t _) = retType t
+    retType (Ref _ (TyCon _ _) n) = Just n
+    retType t = Nothing
+isFiniteEnum _ = pure False
+
+boolHackTree : Ref Ctxt Defs => Ref OptCache OptimizationsCache => CExp vars -> Core (CExp vars)
+boolHackTree (CConCase fc sc alts def)
+   = do Just alts' <- sequence <$> traverse toBool alts
+          | Nothing => pure $ CConCase fc sc alts def
+        pure $ CConstCase fc sc alts' def
+  where
+    toBool : CConAlt vars -> Core (Maybe (CConstAlt vars))
     toBool (MkConAlt nm (Just tag) [] sc)
-        = do guard (isFiniteEnum nm)
-             pure $ MkConstAlt (I tag) sc
-    toBool _ = Nothing
-boolHackTree t = t
+        = do toOptimize <- isFiniteEnum nm
+             log "compile.opt" 10 ("Checked " ++ show !(toFullNames nm) ++ " with result " ++ show toOptimize)
+             pure $ do guard toOptimize
+                       pure $ MkConstAlt (I tag) sc
+    toBool _ = pure Nothing
+boolHackTree t = pure t
 
 mutual
   toCExpTm : {vars : _} ->
              {auto c : Ref Ctxt Defs} ->
+             {auto o : Ref OptCache OptimizationsCache} ->
              Name -> Term vars -> Core (CExp vars)
   toCExpTm n (Local fc _ _ prf)
       = pure $ CLocal fc prf
   -- TMP HACK: extend this to all types which look like enumerations after erasure
   toCExpTm n (Ref fc (DataCon tag arity) fn)
-      = if arity == Z && isFiniteEnum fn
-        then pure $ CPrimVal fc (I tag)
-        else -- get full name for readability, and the Nat hack
-             pure $ CCon fc !(getFullName fn) (Just tag) []
+      = if !(isFiniteEnum fn)
+           then pure $ CPrimVal fc (I tag)
+           else -- get full name for readability, and the Nat hack
+                pure $ CCon fc !(getFullName fn) (Just tag) []
   toCExpTm n (Ref fc (TyCon tag arity) fn)
       = pure $ CCon fc fn Nothing []
   toCExpTm n (Ref fc _ fn)
@@ -297,6 +338,7 @@ mutual
 
   toCExp : {vars : _} ->
            {auto c : Ref Ctxt Defs} ->
+           {auto o : Ref OptCache OptimizationsCache} ->
            Name -> Term vars -> Core (CExp vars)
   toCExp n tm
       = case getFnArgs tm of
@@ -317,6 +359,7 @@ mutual
 mutual
   conCases : {vars : _} ->
              {auto c : Ref Ctxt Defs} ->
+             {auto o : Ref OptCache OptimizationsCache} ->
              Name -> List (CaseAlt vars) ->
              Core (List (CConAlt vars))
   conCases n [] = pure []
@@ -345,6 +388,7 @@ mutual
 
   constCases : {vars : _} ->
                {auto c : Ref Ctxt Defs} ->
+               {auto o : Ref OptCache OptimizationsCache} ->
                Name -> List (CaseAlt vars) ->
                Core (List (CConstAlt vars))
   constCases n [] = pure []
@@ -362,6 +406,7 @@ mutual
   -- once.
   getNewType : {vars : _} ->
                {auto c : Ref Ctxt Defs} ->
+               {auto o : Ref OptCache OptimizationsCache} ->
                FC -> CExp vars ->
                Name -> List (CaseAlt vars) ->
                Core (Maybe (CExp vars))
@@ -413,6 +458,7 @@ mutual
 
   getDef : {vars : _} ->
            {auto c : Ref Ctxt Defs} ->
+           {auto o : Ref OptCache OptimizationsCache} ->
            Name -> List (CaseAlt vars) ->
            Core (Maybe (CExp vars))
   getDef n [] = pure Nothing
@@ -424,6 +470,7 @@ mutual
 
   toCExpTree : {vars : _} ->
                {auto c : Ref Ctxt Defs} ->
+               {auto o : Ref OptCache OptimizationsCache} ->
                Name -> CaseTree vars ->
                Core (CExp vars)
   toCExpTree n alts@(Case _ x scTy (DelayCase ty arg sc :: rest))
@@ -437,19 +484,22 @@ mutual
 
   toCExpTree' : {vars : _} ->
                 {auto c : Ref Ctxt Defs} ->
+                {auto o : Ref OptCache OptimizationsCache} ->
                 Name -> CaseTree vars ->
                 Core (CExp vars)
   toCExpTree' n (Case _ x scTy alts@(ConCase _ _ _ _ :: _))
       = let fc = getLoc scTy in
-            do Nothing <- getNewType fc (CLocal fc x) n alts
-                   | Just def => pure def
+            do -- Nothing <- getNewType fc (CLocal fc x) n alts
+               --     | Just def => pure def
                defs <- get Ctxt
                cases <- conCases n alts
                def <- getDef n alts
                if isNil cases
                   then pure (fromMaybe (CErased fc) def)
-                  else pure $ boolHackTree $ natHackTree $
-                            CConCase fc (CLocal fc x) cases def
+                  else do log "compile.opt" 10 ("preopt tree of " ++ show n ++ ": " ++ show (CConCase fc (CLocal fc x) cases def))
+                          t <- boolHackTree $ natHackTree $ CConCase fc (CLocal fc x) cases def
+                          log "compile.opt" 10 ("postopt tree of " ++ show n ++ ": " ++ show t)
+                          pure t
   toCExpTree' n (Case _ x scTy alts@(DelayCase _ _ _ :: _))
       = throw (InternalError "Unexpected DelayCase")
   toCExpTree' n (Case fc x scTy alts@(ConstCase _ _ :: _))
@@ -598,6 +648,7 @@ getCFTypes args t
     = pure (reverse args, !(nfToCFType (getLoc t) False t))
 
 toCDef : {auto c : Ref Ctxt Defs} ->
+         {auto o : Ref OptCache OptimizationsCache} ->
          Name -> ClosedTerm -> Def ->
          Core CDef
 toCDef n ty None
@@ -650,6 +701,7 @@ toCDef n ty def
 
 export
 compileExp : {auto c : Ref Ctxt Defs} ->
+             {auto o : Ref OptCache OptimizationsCache} ->
              ClosedTerm -> Core (CExp [])
 compileExp tm
     = do exp <- toCExp (UN "main") tm
@@ -657,7 +709,9 @@ compileExp tm
 
 ||| Given a name, look up an expression, and compile it to a CExp in the environment
 export
-compileDef : {auto c : Ref Ctxt Defs} -> Name -> Core ()
+compileDef : {auto c : Ref Ctxt Defs} ->
+             {auto o : Ref OptCache OptimizationsCache} ->
+             Name -> Core ()
 compileDef n
     = do defs <- get Ctxt
          Just gdef <- lookupCtxtExact n (gamma defs)

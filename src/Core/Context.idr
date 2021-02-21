@@ -839,6 +839,7 @@ HasNames Def where
       = pure $ Guess !(resolved gam tm) b cs
   resolved gam t = pure t
 
+export
 HasNames (NameMap a) where
   full gam nmap
       = insertAll empty (toList nmap)
